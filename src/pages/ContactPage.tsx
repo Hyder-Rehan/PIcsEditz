@@ -57,6 +57,8 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateHome, onNavi
     return Object.keys(errs).length === 0;
   };
 
+  const supportRecipientEmail = 'hyderrehan79@gmail.com';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
@@ -66,19 +68,31 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateHome, onNavi
     setIsSubmitting(true);
 
     try {
-      // Simulate real dispatch or fallback storage
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 600));
 
-      // Store in local inquiries log for browser session demonstration
+      // Store in local inquiries log for browser backup
       const existing = JSON.parse(localStorage.getItem('optipixel-inquiries') || '[]');
       existing.push({
         ...formData,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toLocaleString(),
       });
       localStorage.setItem('optipixel-inquiries', JSON.stringify(existing));
 
+      // Prepare mailto link
+      const mailSubject = encodeURIComponent(`[OptiPixel Contact] ${formData.subject}`);
+      const mailBody = encodeURIComponent(
+        `Name: ${formData.name}\nEmail: ${formData.email}\nSubject: ${formData.subject}\n\nMessage:\n${formData.message}\n\nSent from OptiPixel Contact Form`
+      );
+      const mailtoLink = `mailto:${supportRecipientEmail}?subject=${mailSubject}&body=${mailBody}`;
+
       setSubmitSuccess(true);
-      setFormData({ name: '', email: '', subject: '', message: '' });
+
+      // Attempt to launch default mail app
+      try {
+        window.location.href = mailtoLink;
+      } catch {
+        // Fallback handled in success UI
+      }
     } catch (err: any) {
       setSubmitError('Unable to send message at this time. Please try emailing directly.');
     } finally {
@@ -237,10 +251,10 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigateHome, onNavi
                   <div>
                     <span className="font-semibold text-slate-900 dark:text-white block">Email Support</span>
                     <a
-                      href="mailto:support@optipixel.app"
+                      href={`mailto:${supportRecipientEmail}`}
                       className="text-indigo-600 dark:text-indigo-400 hover:underline font-mono"
                     >
-                      support@optipixel.app
+                      {supportRecipientEmail}
                     </a>
                   </div>
                 </div>
