@@ -1,0 +1,8 @@
+{
+  "name": "OptiPixel – All-in-One Professional Image Toolkit",
+  "description": "Compress, resize, convert, edit, remove backgrounds, and create passport photos and social media graphics in seconds directly in your browser.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
