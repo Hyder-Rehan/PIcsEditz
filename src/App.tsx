@@ -18,6 +18,7 @@ import {
 import { ImageFileItem, TemplateItem, ToolId } from './types';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
+import { Footer } from './components/Footer';
 import { AdPlacement } from './components/AdPlacement';
 import { CompressorTool } from './components/tools/CompressorTool';
 import { ResizerTool } from './components/tools/ResizerTool';
@@ -29,10 +30,26 @@ import { AdditionalTools } from './components/tools/AdditionalTools';
 import { TemplatesLibrary } from './components/TemplatesLibrary';
 import { HowItWorks } from './components/HowItWorks';
 import { FaqSection } from './components/FaqSection';
-import { CookieBanner, LegalModals } from './components/LegalModals';
+import { CookieBanner } from './components/LegalModals';
 import { SAMPLE_ASSETS } from './data/presets';
+import { updatePageSeo } from './utils/seo';
+
+// Dedicated Informational & Legal Pages
+import { AboutPage } from './pages/AboutPage';
+import { ContactPage } from './pages/ContactPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { DisclaimerPage } from './pages/DisclaimerPage';
+import { FaqPage } from './pages/FaqPage';
+import { HowToUsePage } from './pages/HowToUsePage';
+import { ReportIssuePage } from './pages/ReportIssuePage';
 
 export default function App() {
+  // Client URL route management
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    return window.location.pathname || '/';
+  });
+
   const [activeTool, setActiveTool] = useState<ToolId>('compress');
   const [hasLoadedFiles, setHasLoadedFiles] = useState<boolean>(false);
   const [files, setFiles] = useState<ImageFileItem[]>([]);
@@ -40,7 +57,6 @@ export default function App() {
     return localStorage.getItem('optipixel-theme') === 'dark' ||
       window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-  const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | 'contact' | 'docs' | null>(null);
 
   // Sync dark class on document element
   useEffect(() => {
@@ -52,6 +68,32 @@ export default function App() {
       localStorage.setItem('optipixel-theme', 'light');
     }
   }, [isDark]);
+
+  // Sync browser popstate (back/forward)
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname || '/';
+      setCurrentPath(path);
+      updatePageSeo(path);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    updatePageSeo(currentPath);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  // Dynamic route navigator
+  const navigateTo = (path: string) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    setCurrentPath(path);
+    updatePageSeo(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Load files from FileList or File array
   const handleFilesSelected = async (fileList: FileList | File[], initialTool?: ToolId) => {
@@ -85,6 +127,9 @@ export default function App() {
       if (initialTool) {
         setActiveTool(initialTool);
       }
+      if (currentPath !== '/') {
+        navigateTo('/');
+      }
       // Smooth scroll to tool workspace
       setTimeout(() => {
         document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' });
@@ -115,6 +160,22 @@ export default function App() {
     handleLoadSample(template.sampleImageUrl, `${template.id}.jpg`, template.recommendedTool);
   };
 
+  const handleLaunchToolFromPage = (toolId: string) => {
+    navigateTo('/');
+    setActiveTool(toolId as ToolId);
+    if (!hasLoadedFiles) {
+      const sample = toolId === 'passport'
+        ? SAMPLE_ASSETS.portrait
+        : toolId === 'background'
+        ? SAMPLE_ASSETS.product
+        : SAMPLE_ASSETS.landscape;
+      handleLoadSample(sample, `demo_${toolId}.jpg`, toolId as ToolId);
+    }
+    setTimeout(() => {
+      document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' });
+    }, 150);
+  };
+
   const allTools: { id: ToolId; name: string; icon: any; desc: string }[] = [
     { id: 'compress', name: 'Compressor', icon: Minimize2, desc: 'Shrink file size up to 85%' },
     { id: 'resize', name: 'Resizer', icon: Maximize2, desc: 'Dimensions & Aspect lock' },
@@ -127,21 +188,25 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      {/* Top Bar Header */}
+      {/* Universal Top Bar Header */}
       <Navbar
+        currentPath={currentPath}
         activeTool={hasLoadedFiles ? activeTool : null}
+        onNavigatePage={navigateTo}
         onSelectTool={(tool) => {
+          if (currentPath !== '/') navigateTo('/');
           setActiveTool(tool);
           if (!hasLoadedFiles) {
             handleLoadSample(SAMPLE_ASSETS.landscape, 'demo_landscape.jpg', tool);
           }
-        }}
-        onResetToHome={() => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          setTimeout(() => {
+            document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
         }}
         isDark={isDark}
         onToggleDark={() => setIsDark(!isDark)}
         onOpenUpload={() => {
+          if (currentPath !== '/') navigateTo('/');
           const input = document.createElement('input');
           input.type = 'file';
           input.multiple = true;
@@ -151,283 +216,253 @@ export default function App() {
           };
           input.click();
         }}
-        onOpenLegal={(type) => setLegalModal(type)}
       />
 
       <main className="flex-1">
-        {/* Hero Section with Drag & Drop Zone */}
-        <Hero
-          onFilesSelected={(fileList, initialTool) => handleFilesSelected(fileList, initialTool)}
-          onLoadSample={handleLoadSample}
-        />
+        {/* ROUTE 1: ABOUT US PAGE */}
+        {currentPath === '/about' && (
+          <AboutPage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+          />
+        )}
 
-        {/* AdSense Top Leaderboard */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <AdPlacement slotType="horizontal-leaderboard" />
-        </div>
+        {/* ROUTE 2: CONTACT US PAGE */}
+        {currentPath === '/contact' && (
+          <ContactPage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+          />
+        )}
 
-        {/* WORKSPACE AREA (When files loaded or tool active) */}
-        <section id="workspace" className="py-12 border-b border-slate-200/80 dark:border-slate-800/80 scroll-mt-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Tool Selection Tabs Bar */}
-            <div id="tools" className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                    Toolkit Dashboard
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Switch between specialized image manipulation engines with your active image:
-                  </p>
-                </div>
-              </div>
+        {/* ROUTE 3: PRIVACY POLICY PAGE */}
+        {currentPath === '/privacy' && (
+          <PrivacyPolicyPage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+          />
+        )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 p-1.5 bg-slate-200/60 dark:bg-slate-900 rounded-2xl">
-                {allTools.map((t) => {
-                  const Icon = t.icon;
-                  const isSelected = activeTool === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setActiveTool(t.id);
-                        if (!hasLoadedFiles) {
-                          // Auto load appropriate sample so user sees live tool in action
-                          const sample = t.id === 'passport' ? SAMPLE_ASSETS.portrait : t.id === 'background' ? SAMPLE_ASSETS.product : SAMPLE_ASSETS.landscape;
-                          handleLoadSample(sample, `demo_${t.id}.jpg`, t.id);
-                        }
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all text-center ${
-                        isSelected
-                          ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold shadow-md shadow-slate-200/50 dark:shadow-none'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5 mb-1" />
-                      <span className="text-xs whitespace-nowrap">{t.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
+        {/* ROUTE 4: TERMS OF SERVICE PAGE */}
+        {currentPath === '/terms' && (
+          <TermsOfServicePage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+          />
+        )}
+
+        {/* ROUTE 5: DISCLAIMER PAGE */}
+        {currentPath === '/disclaimer' && (
+          <DisclaimerPage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+          />
+        )}
+
+        {/* ROUTE 6: FAQ PAGE */}
+        {currentPath === '/faq' && (
+          <FaqPage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+          />
+        )}
+
+        {/* ROUTE 7: HOW TO USE PAGE */}
+        {currentPath === '/how-to-use' && (
+          <HowToUsePage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+            onLaunchTool={handleLaunchToolFromPage}
+          />
+        )}
+
+        {/* ROUTE 8: REPORT ISSUE / HELP CENTER */}
+        {currentPath === '/report-issue' && (
+          <ReportIssuePage
+            onNavigateHome={() => navigateTo('/')}
+            onNavigatePage={navigateTo}
+          />
+        )}
+
+        {/* DEFAULT ROUTE: HOMEPAGE WITH FULL TOOLKIT */}
+        {currentPath === '/' && (
+          <>
+            {/* Hero Section with Drag & Drop Zone */}
+            <Hero
+              onFilesSelected={(fileList, initialTool) => handleFilesSelected(fileList, initialTool)}
+              onLoadSample={handleLoadSample}
+            />
+
+            {/* AdSense Top Leaderboard */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <AdPlacement slotType="horizontal-leaderboard" />
             </div>
 
-            {/* Active Tool Viewport */}
-            <div className="p-6 sm:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm backdrop-blur-sm">
-              {files.length === 0 ? (
-                <div className="py-16 text-center space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600">
-                    <UploadCloud className="w-8 h-8" />
+            {/* WORKSPACE AREA */}
+            <section id="workspace" className="py-12 border-b border-slate-200/80 dark:border-slate-800/80 scroll-mt-20">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Tool Selection Tabs Bar */}
+                <div id="tools" className="mb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                        Toolkit Dashboard
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        Switch between specialized image manipulation engines with your active image:
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Ready to process your images</h3>
-                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                      Upload your image or pick a demo asset from above to instantly use the {allTools.find(t => t.id === activeTool)?.name}.
-                    </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 p-1.5 bg-slate-200/60 dark:bg-slate-900 rounded-2xl">
+                    {allTools.map((t) => {
+                      const Icon = t.icon;
+                      const isSelected = activeTool === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            setActiveTool(t.id);
+                            if (!hasLoadedFiles) {
+                              const sample = t.id === 'passport'
+                                ? SAMPLE_ASSETS.portrait
+                                : t.id === 'background'
+                                ? SAMPLE_ASSETS.product
+                                : SAMPLE_ASSETS.landscape;
+                              handleLoadSample(sample, `demo_${t.id}.jpg`, t.id);
+                            }
+                          }}
+                          className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all text-center ${
+                            isSelected
+                              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold shadow-md shadow-slate-200/50 dark:shadow-none'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5 mb-1" />
+                          <span className="text-xs whitespace-nowrap">{t.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <button
-                    onClick={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'sample_landscape.jpg', activeTool)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-                  >
-                    <span>Load Demo Photo</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
                 </div>
-              ) : (
-                <>
-                  {activeTool === 'compress' && (
-                    <CompressorTool
-                      files={files}
-                      onUpdateFile={handleUpdateFile}
-                      onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'scenic_photo.jpg', 'compress')}
-                    />
-                  )}
 
-                  {activeTool === 'resize' && (
-                    <ResizerTool
-                      files={files}
-                      onUpdateFile={handleUpdateFile}
-                      onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'scenic_photo.jpg', 'resize')}
-                    />
-                  )}
+                {/* Active Tool Viewport */}
+                <div className="p-6 sm:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm backdrop-blur-sm">
+                  {files.length === 0 ? (
+                    <div className="py-16 text-center space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600">
+                        <UploadCloud className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Ready to process your images</h3>
+                        <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                          Upload your image or pick a demo asset from above to instantly use the {allTools.find(t => t.id === activeTool)?.name}.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'sample_landscape.jpg', activeTool)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                      >
+                        <span>Load Demo Photo</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {activeTool === 'compress' && (
+                        <CompressorTool
+                          files={files}
+                          onUpdateFile={handleUpdateFile}
+                          onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'scenic_photo.jpg', 'compress')}
+                        />
+                      )}
 
-                  {activeTool === 'convert' && (
-                    <ConverterTool
-                      files={files}
-                      onUpdateFile={handleUpdateFile}
-                      onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.product, 'product_photo.jpg', 'convert')}
-                    />
-                  )}
+                      {activeTool === 'resize' && (
+                        <ResizerTool
+                          files={files}
+                          onUpdateFile={handleUpdateFile}
+                          onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'scenic_photo.jpg', 'resize')}
+                        />
+                      )}
 
-                  {activeTool === 'background' && (
-                    <BackgroundTool
-                      files={files}
-                      onUpdateFile={handleUpdateFile}
-                      onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.product, 'product_photo.jpg', 'background')}
-                    />
-                  )}
+                      {activeTool === 'convert' && (
+                        <ConverterTool
+                          files={files}
+                          onUpdateFile={handleUpdateFile}
+                          onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.product, 'product_photo.jpg', 'convert')}
+                        />
+                      )}
 
-                  {activeTool === 'editor' && (
-                    <EditorTool
-                      files={files}
-                      onUpdateFile={handleUpdateFile}
-                      onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.banner, 'banner_scene.jpg', 'editor')}
-                    />
-                  )}
+                      {activeTool === 'background' && (
+                        <BackgroundTool
+                          files={files}
+                          onUpdateFile={handleUpdateFile}
+                          onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.product, 'product_photo.jpg', 'background')}
+                        />
+                      )}
 
-                  {activeTool === 'passport' && (
-                    <PassportPhotoTool
-                      files={files}
-                      onUpdateFile={handleUpdateFile}
-                      onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.portrait, 'id_portrait.jpg', 'passport')}
-                    />
-                  )}
+                      {activeTool === 'editor' && (
+                        <EditorTool
+                          files={files}
+                          onUpdateFile={handleUpdateFile}
+                          onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.banner, 'banner_scene.jpg', 'editor')}
+                        />
+                      )}
 
-                  {['pdf', 'watermark', 'color-picker', 'qr-code', 'meme', 'metadata', 'collage', 'favicon', 'bulk'].includes(activeTool) && (
-                    <AdditionalTools
-                      files={files}
-                      activeSubTool={activeTool}
-                      onSelectSubTool={(sub) => setActiveTool(sub)}
-                      onUpdateFile={handleUpdateFile}
-                      onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'sample_photo.jpg', activeTool)}
-                    />
+                      {activeTool === 'passport' && (
+                        <PassportPhotoTool
+                          files={files}
+                          onUpdateFile={handleUpdateFile}
+                          onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.portrait, 'id_portrait.jpg', 'passport')}
+                        />
+                      )}
+
+                      {['pdf', 'watermark', 'color-picker', 'qr-code', 'meme', 'metadata', 'collage', 'favicon', 'bulk'].includes(activeTool) && (
+                        <AdditionalTools
+                          files={files}
+                          activeSubTool={activeTool}
+                          onSelectSubTool={(sub) => setActiveTool(sub)}
+                          onUpdateFile={handleUpdateFile}
+                          onSelectAnother={() => handleLoadSample(SAMPLE_ASSETS.landscape, 'sample_photo.jpg', activeTool)}
+                        />
+                      )}
+                    </>
                   )}
-                </>
-              )}
+                </div>
+              </div>
+            </section>
+
+            {/* Templates Section */}
+            <TemplatesLibrary onSelectTemplate={handleSelectTemplate} />
+
+            {/* AdSense Mid-Page Rectangle */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <AdPlacement slotType="medium-rectangle" />
             </div>
-          </div>
-        </section>
 
-        {/* Templates Section */}
-        <TemplatesLibrary onSelectTemplate={handleSelectTemplate} />
+            {/* How It Works Section */}
+            <HowItWorks />
 
-        {/* AdSense Mid-Page Rectangle */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <AdPlacement slotType="medium-rectangle" />
-        </div>
-
-        {/* How It Works Section */}
-        <HowItWorks />
-
-        {/* FAQ Section */}
-        <FaqSection />
+            {/* FAQ Section */}
+            <FaqSection />
+          </>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-12 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                  <Sparkles className="w-3.5 h-3.5" />
-                </div>
-                <span className="font-extrabold text-slate-900 dark:text-white text-base">OptiPixel</span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                The all-in-one client-side browser image toolkit. High speed, zero server uploads, 100% private.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-3">
-                Core Tools
-              </h4>
-              <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-                <li>
-                  <button onClick={() => { setActiveTool('compress'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    Image Compressor
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTool('resize'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    Image Resizer
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTool('convert'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    Format Converter
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTool('background'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    Background Remover
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-3">
-                Biometric & Utility
-              </h4>
-              <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-                <li>
-                  <button onClick={() => { setActiveTool('passport'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    Passport Photo Maker
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTool('pdf'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    Images to PDF
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTool('watermark'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    Watermark Generator
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => { setActiveTool('qr-code'); window.scrollTo({ top: 350, behavior: 'smooth' }); }} className="hover:text-indigo-600">
-                    QR Code Generator
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-3">
-                Legal & Documentation
-              </h4>
-              <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-                <li>
-                  <button onClick={() => setLegalModal('privacy')} className="hover:text-indigo-600">
-                    Privacy Policy
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setLegalModal('terms')} className="hover:text-indigo-600">
-                    Terms of Service
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setLegalModal('contact')} className="hover:text-indigo-600">
-                    Contact & Support
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setLegalModal('docs')} className="hover:text-indigo-600 font-semibold text-indigo-600 dark:text-indigo-400">
-                    Deploy & SEO Guide
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <div>
-              © 2026 OptiPixel. All rights reserved. Free browser-based image utilities.
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-                <ShieldCheck className="w-4 h-4" /> 100% In-Browser Privacy
-              </span>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Legal & Docs Modals */}
-      <LegalModals modalType={legalModal} onClose={() => setLegalModal(null)} />
+      {/* Universal Footer Component with All Links */}
+      <Footer
+        onNavigatePage={navigateTo}
+        onSelectTool={(tool) => {
+          if (currentPath !== '/') navigateTo('/');
+          setActiveTool(tool);
+          if (!hasLoadedFiles) {
+            handleLoadSample(SAMPLE_ASSETS.landscape, 'demo_landscape.jpg', tool);
+          }
+          setTimeout(() => {
+            document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }}
+      />
 
       {/* Cookie Consent Banner */}
       <CookieBanner />

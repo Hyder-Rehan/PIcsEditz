@@ -1,0 +1,16 @@
+# OptiPixel Robots.txt
+# Allow all search engines and Google AdSense crawlers full access
+
+User-agent: *
+Allow: /
+
+# Google AdSense Mediapartners crawler
+User-agent: Mediapartners-Google
+Allow: /
+
+# Google AdsBot
+User-agent: AdsBot-Google
+Allow: /
+
+# Sitemap Location
+Sitemap: https://optipixel.app/sitemap.xml
